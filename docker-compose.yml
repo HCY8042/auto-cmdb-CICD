@@ -1,0 +1,80 @@
+version: '3.3'
+
+services:
+
+  cmdb:
+    #image: centos7-python3.7
+    build: /home/docker_compose/auto-cmdb/docker-cmdb/cmdb
+    ports:
+      - "127.0.0.1:9099:80"
+      - "127.0.0.1:9333:22"
+    container_name: "cmdb_server"
+    #volumes:
+    #  - ./docker-cmdb/cmdb/cmdb:/opt/cmdb  
+    networks:
+      - jumpserver-test
+    tty: true
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq
+      - nginx
+    command:
+      - /bin/bash
+      - -c
+      - |
+        cd /opt/cmdb
+        python3 manage.py makemigrations
+        python3 manage.py migrate
+        uwsgi --ini conf/qf_uwsgi.ini
+  mysql:
+    build:
+      context: ./docker-cmdb/mysql 
+      dockerfile: Dockerfile
+    #image: mysql/mysql-server:5.7
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./data/mysql/data:/var/lib/mysql
+      - ./data/mysql/init:/docker-entrypoint-initdb.d/
+      #- type: volume
+      #  source: mysqldb
+      #  target: /var/lib/mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Oyzx1314@
+    expose:
+      - "3306"
+    container_name: "mysql_server"
+    networks:
+      - jumpserver-test
+  redis:
+    #image: redis:alpine
+    build: /home/docker_compose/auto-cmdb/docker-cmdb/redis
+    expose:
+      - "6379"
+    container_name: "redis_server"
+    networks:
+      - jumpserver-test
+  rabbitmq:
+    #image: rabbitmq:latest
+    build: /home/docker_compose/auto-cmdb/docker-cmdb/rabbitmq
+    expose:
+      - "5672"
+    container_name: "rabbitmq_server"
+    networks:
+      - jumpserver-test
+  nginx:
+    #image: nginx:alpine3.8
+    build: /home/docker_compose/auto-cmdb/docker-cmdb/nginx
+    ports:
+      - "4333:80"
+    container_name: "nginx_server"
+    volumes:
+      - ./docker-cmdb/nginx/conf.d:/etc/nginx/conf.d
+      - ./docker-cmdb/nginx/allstatic:/allstatic
+    networks:
+      - jumpserver-test
+
+networks:
+  jumpserver-test:
+    driver: bridge
